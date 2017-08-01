@@ -1,0 +1,8 @@
+__pycache__/
+notebook/*.ipynb
+notebook/.ipynb_checkpoints
+logs/
+conf/*.conf
+conf/*.xml
+*.egg-info
+*.swp

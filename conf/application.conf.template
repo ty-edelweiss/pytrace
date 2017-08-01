@@ -1,0 +1,16 @@
+# Application database configure. please, set your database name and user, password. if you need to use remote database, you should set another host and port.
+
+# database name
+DATABASE=test
+
+# database user's name
+USERNAME=postgres
+
+# database user's password
+PASSWORD=xxxx
+
+# database hostname
+HOST=127.0.0.1
+
+# database port
+PORT=5432
