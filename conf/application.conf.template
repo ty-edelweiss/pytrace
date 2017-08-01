@@ -1,4 +1,5 @@
-# Application database configure. please, set your database name and user, password. if you need to use remote database, you should set another host and port.
+# Application database configure. please, set your database name and user, password.
+# if you need to use remote database, you should set another host and port.
 
 # database name
 DATABASE=test
