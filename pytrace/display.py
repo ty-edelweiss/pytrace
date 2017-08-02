@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 
 def all(dataframe: pandas.core.frame.DataFrame):
-    dataframe.show()
+    print(dataframe)
 
 def flow(dataframe: pandas.core.frame.DataFrame):
     print(dataframe)

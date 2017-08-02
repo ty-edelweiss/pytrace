@@ -17,11 +17,11 @@ LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s: %(message)s"
 parser = OptionParser()
 
 parser.add_option(
-    "-d", "--dimension",
+    "-l", "--level",
     choices=[4, 5, 6],
     default=4,
-    help="dimension of mesh code",
-    dest="dimension"
+    help="level of mesh code",
+    dest="level"
 )
 
 parser.add_option(
@@ -39,7 +39,7 @@ parser.add_option(
 parser.add_option(
     "-s", "--span",
     type="float",
-    defaut=180.0,
+    default=180.0,
     dest="span"
 )
 
@@ -71,35 +71,32 @@ if __name__ == "__main__":
     logger = logging.getLogger(__name__)
     options, args = parser.parse_args()
 
-    target = options["target"]
-    target_mesh = options["mesh"]
-    table_name = VENDOR + "_mesh_" + options["dimension"]
+    table_name = VENDOR + "_mesh_" + str(options.level)
 
     with open("./conf/application.conf", "r") as f:
         lines = f.readlines()
-        config = tuple([line.strip().split("=")[1] for line in lines])
+        config = tuple([line.strip().split("=")[1] for line in lines if "=" in line])
     database, username, password, host, port = config
     logger.info("Input configure data to success from application.conf")
 
     connection = psycopg2.connect(database=database, user=username, password=password, host=host, port=port)
-    df = pd.read_sql(f"select * from {table_name}", connection)
 
-    tracer = Tracer(span=options["span"], bandwidth=options["bandwidth"])
-    if target is not None and target_mesh is not None:
-        traceframe = df["owner" == target]
-        pdf = tracer.fit(traceframe, "takendate", ref=traceframe["mesh_code" == target_mesh]).predict(traceframe, "takendate", mode="median")
+    tracer = Tracer(span=options.span, bandwidth=options.bandwidth)
+    if options.target is not None and options.mesh is not None:
+        traceframe = pd.read_sql(f"select * from {table_name} where owner like {options.target}")
+        pdf = tracer.fit(traceframe, "takendate", ref=traceframe[traceframe["mesh_code"] == options.mesh]).predict(traceframe, "takendate", mode="median")
         display.flow(pdf)
-    elif target is not None:
-        traceframe = df["owner" == target]
+    elif options.target is not None:
+        traceframe = pd.read_sql(f"select * from {table_name} where owner like {options.target}", connection)
         pdf = tracer.fit(traceframe, "takendate").predict(traceframe, "takendate", mode="median")
         display.flow(pdf)
-    elif target_mesh is not None:
-        traceframe = df["mesh_code" == target_mesh]
-        display.all(traceframe)
+    elif options.mesh is not None:
+        df = pd.read_sql(f"select * from {table_name} where mesh_code = {options.mesh}", connection)
+        display.all(df)
     else:
-        target_mesh = input("Target mesh-code : ")
-        traceframe = df["mesh_code" == target_mesh]
-        display.all(traceframe)
+        options.mesh = int(input("target mesh-code : "))
+        df = pd.read_sql(f"select * from {table_name} where mesh_code = {options.mesh}", connection)
+        display.all(df)
 
     logger.info(f"Finished output to trace data on {df.shape[0]}")
 
