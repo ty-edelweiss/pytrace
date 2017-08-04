@@ -13,5 +13,5 @@ from ..wrapper.pandas import predict_dataframe_wrapper
 class TraceModel(TraceModelCore):
 
     @predict_dataframe_wrapper
-    def predict(self, features: List[datetime.datetime]) -> List[int]:
-        return super().predict(features)
+    def predict(self, features: List[datetime.datetime], mode: str = "all") -> List[int]:
+        return super().predict(features, mode)

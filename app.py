@@ -1,14 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import logging
 import logging.handlers
 from optparse import OptionParser
 
-import psycopg2
 import pandas as pd
+import psycopg2
 
 from pytrace import display
+from pytrace.dataframe.utils import aggregate2
 from pytrace.dataframe.trace import Tracer
 
 VENDOR = "flickr"
@@ -44,10 +44,17 @@ parser.add_option(
 )
 
 parser.add_option(
-    "-b", "--bandwidth",
+    "-p", "--precision",
     type="float",
     default=30.0,
-    dest="bandwidth"
+    dest="precision"
+)
+
+parser.add_option(
+    "-e", "--error",
+    type="float",
+    default=720.0,
+    dest="error"
 )
 
 stream_handler = logging.StreamHandler()
@@ -81,24 +88,37 @@ if __name__ == "__main__":
 
     connection = psycopg2.connect(database=database, user=username, password=password, host=host, port=port)
 
-    tracer = Tracer(span=options.span, bandwidth=options.bandwidth)
+    tracer = Tracer(span=options.span, precision=options.precision)
     if options.target is not None and options.mesh is not None:
-        traceframe = pd.read_sql(f"select * from {table_name} where owner like {options.target}")
-        pdf = tracer.fit(traceframe, "takendate", ref=traceframe[traceframe["mesh_code"] == options.mesh]).predict(traceframe, "takendate", mode="median")
-        display.flow(pdf)
+        df = pd.read_sql(f"select * from {table_name} where owner like '{options.target}'", connection)
+        traceframe = aggregate2(df, "takendate", "mesh_code", errorRange=options.error)
+        for idx, row in traceframe[traceframe["mesh_code"] == options.mesh].iterrows():
+            pdf = tracer.fit(traceframe, "takendate", ref=row["takendate"]).predict(traceframe, "takendate", mode="median")
+            display.flow(pdf, options.span, displayCol=["mesh_code", "latitude", "longitude"], featureCol="takendate", types=["int", "float", "float"])
     elif options.target is not None:
-        traceframe = pd.read_sql(f"select * from {table_name} where owner like {options.target}", connection)
+        df = pd.read_sql(f"select * from {table_name} where owner like '{options.target}'", connection)
+        traceframe = aggregate2(df, "takendate", "mesh_code", errorRange=options.error)
         pdf = tracer.fit(traceframe, "takendate").predict(traceframe, "takendate", mode="median")
-        display.flow(pdf)
+        display.flow(pdf, options.span, displayCol=["mesh_code", "latitude", "longitude"], featureCol="takendate", types=["int", "float", "float"])
     elif options.mesh is not None:
         df = pd.read_sql(f"select * from {table_name} where mesh_code = {options.mesh}", connection)
-        display.all(df)
+        tmp = []
+        for idx, group in df.groupby("owner"):
+            adf = aggregate2(group, "takendate", "mesh_code", errorRange=options.error)
+            tmp.append(adf)
+        meshframe = pd.concat(tmp, ignore_index=True)
+        display.all(meshframe, displayCol=["owner", "takendate", "mesh_code", "latitude", "longitude"])
     else:
         options.mesh = int(input("target mesh-code : "))
         df = pd.read_sql(f"select * from {table_name} where mesh_code = {options.mesh}", connection)
-        display.all(df)
+        tmp = []
+        for idx, group in df.groupby("owner"):
+            adf = aggregate2(group, "takendate", "mesh_code", errorRange=options.error)
+            tmp.append(adf)
+        meshframe = pd.concat(tmp, ignore_index=True)
+        display.all(meshframe, displayCol=["owner", "takendate", "mesh_code", "latitude", "longitude"])
 
-    logger.info(f"Finished output to trace data on {df.shape[0]}")
+    logger.info(f"Finished output to trace data")
 
     connection.close()
 
